@@ -4,7 +4,7 @@ import torch.nn as nn
 class PositionwiseFeedForward(nn.Module):
     def __init__(self, d_model, d_ff, dropout=0.1):
         """
-        DialogueGPT的前馈神经网络（FFN）模块。
+        DeepSeek的前馈神经网络（FFN）模块。
         
         Args:
             d_model (int): 输入和输出的特征维度（即词嵌入的维度）。

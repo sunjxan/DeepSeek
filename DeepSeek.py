@@ -4,10 +4,10 @@ import torch.nn as nn
 
 from Decoder import Decoder
 
-class DialogueGPT(nn.Module):
+class DeepSeek(nn.Module):
     def __init__(self, vocab_size, d_model=768, num_heads=12, num_layers=12, d_ff=3072, max_seq_len=512, dropout=0.1):
         """
-        DialogueGPT 模型
+        DeepSeek 模型
         Args:
             vocab_size (int): 词表大小
             d_model (int): 模型维度（输入/输出维度）

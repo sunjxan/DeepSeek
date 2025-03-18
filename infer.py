@@ -2,7 +2,7 @@ import os
 import torch
 
 from data import create_tokenizer
-from DialogueGPT import DialogueGPT
+from DeepSeek import DeepSeek
 
 ROLE_MAP = {"system": 0, "user": 1, "assistant": 2}
 
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     tokenizer = create_tokenizer()
     
     # 创建模型
-    model = DialogueGPT(tokenizer.vocab_size)
+    model = DeepSeek(tokenizer.vocab_size)
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model.to(device)

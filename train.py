@@ -7,7 +7,7 @@ from torch.functional import F
 from torch.utils.tensorboard import SummaryWriter
 
 from data import create_tokenizer, create_dataloader
-from DialogueGPT import DialogueGPT
+from DeepSeek import DeepSeek
 
 class Trainer:
     def __init__(self, model, train_loader, val_loader, criterion, calc_accuracy, optimizer, scheduler=None, config=None):
@@ -243,7 +243,7 @@ if __name__ == '__main__':
     pad_id = tokenizer.convert_tokens_to_ids(pad_token)
     
     # 创建模型
-    model = DialogueGPT(tokenizer.vocab_size)
+    model = DeepSeek(tokenizer.vocab_size)
     
     # 初始化参数
     model.init_parameters()
