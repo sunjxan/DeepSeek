@@ -33,7 +33,7 @@ class DeepSeek(nn.Module):
         self.decoder = Decoder(num_layers, d_model, num_heads, d_ff, dropout)
         
         # 5. 最终线性层
-        self.generator = nn.Linear(d_model, vocab_size, bias=False)
+        self.generator = nn.Linear(d_model, vocab_size)
         
         # 权重绑定：输入嵌入和输出层共享权重
         self.embed.weight = self.generator.weight
@@ -75,11 +75,11 @@ class DeepSeek(nn.Module):
             init_type (str): 初始化类型，可选 'xavier'（默认）或 'kaiming'
         """
         for name, param in self.named_parameters():
-            if param.dim() > 1:  # 仅初始化矩阵权重，忽略偏置和LayerNorm参数
+            if param.dim() > 1:  # 仅初始化矩阵权重，忽略偏置和RMSNorm参数
                 nn.init.normal_(param, mean=0.0, std=0.02)
             elif 'bias' in name:  # 偏置初始化为零
                 nn.init.zeros_(param)
-            # LayerNorm参数保持默认初始化（gamma=1, beta=0）
+            # RMSNorm参数保持默认初始化（gamma=1, beta=0）
     
     @staticmethod
     def generate_padding_mask(seq, pad_id=0):

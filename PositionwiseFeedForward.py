@@ -16,8 +16,10 @@ class PositionwiseFeedForward(nn.Module):
         self.linear1 = nn.Linear(d_model, d_ff)
         # 第二个线性层：将中间层从d_ff恢复回d_model维度
         self.linear2 = nn.Linear(d_ff, d_model)
+        # 并行线性变换层：用于门控计算
+        self.linear3 = nn.Linear(d_model, d_ff)
         # 激活函数
-        self.activation = nn.GELU()
+        self.activation = nn.SiLU()
         # Dropout层，用于防止过拟合
         self.dropout = nn.Dropout(dropout)
     
@@ -34,15 +36,16 @@ class PositionwiseFeedForward(nn.Module):
         # 输入x的shape: (batch_size, seq_len, d_model)
         
         # 第一步：通过第一个线性层（扩展维度）
-        x = self.linear1(x)
+        y = self.linear1(x)
+        z = self.linear3(x)
         # 此时x的shape: (batch_size, seq_len, d_ff)
         
         # 第二步：应用激活函数
-        x = self.activation(x)
+        y = self.activation(y)
         # 激活函数不改变shape，仍为(batch_size, seq_len, d_ff)
         
         # 第三步：应用Dropout
-        x = self.dropout(x)
+        x = self.dropout(y * z)
         # Dropout不改变shape，仍为(batch_size, seq_len, d_ff)
         
         # 第四步：通过第二个线性层（恢复维度）

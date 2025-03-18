@@ -24,7 +24,7 @@ class DecoderLayer(nn.Module):
         # 2. 前馈网络
         self.ffn = PositionwiseFeedForward(d_model, d_ff, dropout)
         
-        # 3. 层归一化（LayerNorm） + Dropout层
+        # 3. 层归一化（RMSNorm） + Dropout层
         self.sublayer1 = SublayerConnection(d_model, dropout)
         self.sublayer2 = SublayerConnection(d_model, dropout)
     
@@ -66,7 +66,7 @@ class Decoder(nn.Module):
             for _ in range(num_layers)
         ])
         
-        self.norm = nn.LayerNorm(d_model)  # 最终归一化层（SublayerConnection选用Post-LN 结构时删除）
+        self.norm = nn.RMSNorm(d_model)  # 最终归一化层（SublayerConnection选用Post-LN 结构时删除）
     
     def forward(self, x, mask=None):
         """
