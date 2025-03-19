@@ -8,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from data import create_tokenizer, create_dataloader
 from DeepSeek import DeepSeek
+from ModelArgs import ModelArgs
 
 class Trainer:
     def __init__(self, model, train_loader, val_loader, criterion, calc_accuracy, optimizer, scheduler=None, config=None):
@@ -68,8 +69,9 @@ class Trainer:
         input_ids, role_ids = next(iter(self.train_loader))
         input_shape = input_ids.shape[1:]
         dummy_input = torch.zeros(1, *input_shape).long().to(self.device)
+        start_pos = torch.zeros(1).int()
         dummy_mask = torch.zeros(1, *input_shape, *input_shape).bool().to(self.device)
-        self.writer.add_graph(self.model, (dummy_input, dummy_input, dummy_mask))
+        self.writer.add_graph(self.model, (dummy_input, dummy_input, start_pos, dummy_mask))
     
     def train_epoch(self, epoch):
         """训练单个epoch"""
@@ -243,7 +245,9 @@ if __name__ == '__main__':
     pad_id = tokenizer.convert_tokens_to_ids(pad_token)
     
     # 创建模型
-    model = DeepSeek(tokenizer.vocab_size)
+    args = ModelArgs()
+    args.vocab_size = tokenizer.vocab_size
+    model = DeepSeek(args)
     
     # 初始化参数
     model.init_parameters()

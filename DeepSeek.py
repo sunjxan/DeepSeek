@@ -4,8 +4,104 @@ import torch.nn as nn
 
 from Decoder import Decoder
 
+def precompute_freqs_cis(args):
+    """
+    预计算旋转位置编码的复数形式频率矩阵
+    
+    算法流程：
+    1. 根据基础参数计算初始频率
+    2. 如果序列长度超过原始长度，进行长度外推修正
+    3. 生成所有位置的频率矩阵
+    4. 转换为复数形式（cos + i*sin）
+    
+    参数:
+        args (ModelArgs): 包含所有位置编码参数的模型参数
+        
+    返回:
+        torch.Tensor: 预计算好的复数频率矩阵，形状为(seq_len, dim//2)
+    """
+    dim = args.qk_rope_head_dim       # 使用带位置编码的头维度
+    seqlen = args.max_seq_len         # 最大序列长度
+    beta_fast = args.beta_fast        # 长度外推参数
+    beta_slow = args.beta_slow
+    base = args.rope_theta            # 10000
+    factor = args.rope_factor         # 扩展因子
+
+    def find_correction_dim(num_rotations, dim, base, max_seq_len):
+        """
+        计算旋转位置嵌入中给定旋转次数所需的校正维度。（用于长度外推）
+        
+        公式推导：
+        d_c = dim * ln(max_seq_len / (num_rotations * 2π)) / (2 ln(base))
+        
+        参数:
+            num_rotations (float): 需要计算校正的旋转次数
+            dim (int): 嵌入空间的维度
+            base (float): 指数计算的基础值
+            max_seq_len (int): 最大序列长度
+        
+        返回:
+            float: 基于输入参数的校正维度
+        """
+        return dim * math.log(max_seq_len / (num_rotations * 2 * math.pi)) / (2 * math.log(base))
+
+    def find_correction_range(low_rot, high_rot, dim, base, max_seq_len):
+        """
+        计算旋转位置嵌入的校正维度范围。（生成平滑过渡区域）
+        
+        参数:
+            low_rot (float): 旋转次数的下限
+            high_rot (float): 旋转次数的上限
+            dim (int): 嵌入空间的维度
+            base (float): 指数计算的基础值
+            max_seq_len (int): 最大序列长度
+        
+        返回:
+            Tuple[int, int]: 校正维度的范围（下限，上限），已截断到有效索引范围内
+        """
+        low = math.floor(find_correction_dim(low_rot, dim, base, max_seq_len))
+        high = math.ceil(find_correction_dim(high_rot, dim, base, max_seq_len))
+        return max(low, 0), min(high, dim-1)
+
+    def linear_ramp_factor(min, max, dim):
+        """
+        生成线性斜坡掩码，用于平滑混合基础频率和修正频率
+        
+        参数:
+            min (float): 斜坡函数的最小值
+            max (float): 斜坡函数的最大值
+            dim (int): 斜坡张量的维度
+        
+        返回:
+            torch.Tensor: 形状为 (dim,) 的张量，值在0到1之间线性插值，并截断到[0,1]范围
+        """
+        if min == max:  # 避免除零
+            max += 0.001
+        # 生成0-1的线性插值，然后裁剪到[0,1]区间
+        linear_func = (torch.arange(dim, dtype=torch.float32) - min) / (max - min)
+        return torch.clamp(linear_func, 0, 1)
+
+    # 基础频率计算：1/(base^(2i/dim))，i从0到dim//2-1
+    freqs = 1.0 / (base ** (torch.arange(0, dim, 2, dtype=torch.float32) / dim))
+    
+    # 长度外推处理（当实际长度超过原始训练长度时）
+    if seqlen > args.original_seq_len:
+        # 计算需要调整的维度范围
+        low, high = find_correction_range(beta_fast, beta_slow, dim, base, args.original_seq_len)
+        # 生成平滑过渡掩码（中间区域混合两种频率）
+        smooth = 1 - linear_ramp_factor(low, high, dim // 2)
+        # 混合基础频率和调整后的频率
+        freqs = freqs / factor * (1 - smooth) + freqs * smooth
+
+    # 生成位置-频率矩阵
+    t = torch.arange(seqlen)  # 所有位置索引
+    freqs = torch.outer(t, freqs)  # 外积得到(seqlen, dim//2)矩阵
+    # 转换为复数形式：e^(iθ) = cosθ + i sinθ
+    freqs_cis = torch.polar(torch.ones_like(freqs), freqs)
+    return freqs_cis
+
 class DeepSeek(nn.Module):
-    def __init__(self, vocab_size, d_model=768, num_heads=12, num_layers=12, d_ff=3072, max_seq_len=512, dropout=0.1):
+    def __init__(self, args, dropout=0.1):
         """
         DeepSeek 模型
         Args:
@@ -18,27 +114,30 @@ class DeepSeek(nn.Module):
             dropout (float): Dropout 概率
         """
         super().__init__()
-        self.max_seq_len = max_seq_len
+        self.max_seq_len = args.max_seq_len
         
         # 1. 词嵌入层
-        self.embed = nn.Embedding(vocab_size, d_model)
+        self.embed = nn.Embedding(args.vocab_size, args.dim)
         
-        # 2. 位置编码
-        self.position_emb = nn.Parameter(torch.randn(max_seq_len, d_model))
+        # # 2. 位置编码
+        # self.position_emb = nn.Parameter(torch.randn(max_seq_len, d_model))
         
-        # 3. 对话角色嵌入
-        self.role_emb = nn.Embedding(3, d_model)  # 0:系统 1:用户 2:机器人
+        # # 3. 对话角色嵌入
+        # self.role_emb = nn.Embedding(3, d_model)  # 0:系统 1:用户 2:机器人
         
         # 4. 解码器
-        self.decoder = Decoder(num_layers, d_model, num_heads, d_ff, dropout)
+        self.decoder = Decoder(args, dropout)
         
         # 5. 最终线性层
-        self.generator = nn.Linear(d_model, vocab_size)
+        self.generator = nn.Linear(args.dim, args.vocab_size)
         
         # 权重绑定：输入嵌入和输出层共享权重
         self.embed.weight = self.generator.weight
+        
+        # 注册预计算的位置编码（非持久化缓冲区）
+        self.register_buffer("freqs_cis", precompute_freqs_cis(args), persistent=False)
     
-    def forward(self, input_ids, role_ids, mask=None):
+    def forward(self, input_ids, role_ids, start_pos=0, mask=None):
         """
         前向传播
         Args:
@@ -53,15 +152,18 @@ class DeepSeek(nn.Module):
         # 1. 词嵌入
         emb = self.embed(input_ids)  # (batch_size, seq_len, d_model)
         
-        # 2. 位置编码
-        position_emb = self.position_emb[:seq_len]
+        # # 2. 位置编码
+        # position_emb = self.position_emb[:seq_len]
         
-        # 3. 角色编码
-        role_emb = self.role_emb(role_ids)
-        memory = emb + position_emb + role_emb  # (batch_size, seq_len, d_model)
-        
+        # # 3. 角色编码
+        # role_emb = self.role_emb(role_ids)
+        # memory = emb + position_emb + role_emb  # (batch_size, seq_len, d_model)
+
+        # 获取当前位置编码
+        freqs_cis = self.freqs_cis[start_pos : start_pos + seq_len]
+
         # 4. 解码器处理
-        decoder_output = self.decoder(memory, mask)  # (batch_size, seq_len, d_model)
+        decoder_output = self.decoder(emb, start_pos, freqs_cis, mask)  # (batch_size, seq_len, d_model)
         
         # 5. 输出层映射到词表
         output = self.generator(decoder_output)  # (batch_size, seq_len, vocab_size)

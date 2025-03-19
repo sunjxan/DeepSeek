@@ -3,10 +3,11 @@ import torch.nn as nn
 
 from MultiHeadLatentAttention import MultiHeadLatentAttention
 from PositionwiseFeedForward import PositionwiseFeedForward
+from MoE import MoE
 from SublayerConnection import SublayerConnection
 
 class DecoderLayer(nn.Module):
-    def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
+    def __init__(self, layer_id, args, dropout=0.1):
         """
         DeepSeek的单个解码器层。
         
@@ -19,16 +20,17 @@ class DecoderLayer(nn.Module):
         super().__init__()
         
         # 1. 带掩码的多头自注意力层（用于处理目标序列）
-        self.self_attn = MultiHeadLatentAttention(d_model, num_heads, dropout)
+        self.self_attn = MultiHeadLatentAttention(args, dropout)
         
         # 2. 前馈网络
-        self.ffn = PositionwiseFeedForward(d_model, d_ff, dropout)
+        self.ffn = PositionwiseFeedForward(
+            args.dim, args.inter_dim, dropout) if layer_id < args.n_dense_layers else MoE(args)
         
         # 3. 层归一化（RMSNorm） + Dropout层
-        self.sublayer1 = SublayerConnection(d_model, dropout)
-        self.sublayer2 = SublayerConnection(d_model, dropout)
+        self.sublayer1 = SublayerConnection(args.dim, dropout)
+        self.sublayer2 = SublayerConnection(args.dim, dropout)
     
-    def forward(self, x, mask=None):
+    def forward(self, x, start_pos, freqs_cis, mask=None):
         """
         前向传播
         
@@ -41,7 +43,7 @@ class DecoderLayer(nn.Module):
         """
         # ----------------- 步骤1：带掩码的自注意力 -----------------
         # 输入x的shape: (batch_size, seq_len, d_model)
-        x = self.sublayer1(x, lambda x: self.self_attn(x, mask))
+        x = self.sublayer1(x, lambda x: self.self_attn(x, start_pos, freqs_cis, mask))
         
         # ----------------- 步骤3：前馈网络 -----------------
         x = self.sublayer2(x, self.ffn)
@@ -49,7 +51,7 @@ class DecoderLayer(nn.Module):
         return x  # 输出shape: (batch_size, seq_len, d_model)
 
 class Decoder(nn.Module):
-    def __init__(self, num_layers, d_model, num_heads, d_ff, dropout=0.1):
+    def __init__(self, args, dropout=0.1):
         """
         DeepSeek Decoder 模块
         Args:
@@ -62,13 +64,12 @@ class Decoder(nn.Module):
         super().__init__()
         
         self.layers = nn.ModuleList([
-            DecoderLayer(d_model, num_heads, d_ff, dropout)
-            for _ in range(num_layers)
+            DecoderLayer(layer_id, args, dropout) for layer_id in range(args.n_layers)
         ])
         
-        self.norm = nn.RMSNorm(d_model)  # 最终归一化层（SublayerConnection选用Post-LN 结构时删除）
+        self.norm = nn.RMSNorm(args.dim)  # 最终归一化层（SublayerConnection选用Post-LN 结构时删除）
     
-    def forward(self, x, mask=None):
+    def forward(self, x, start_pos, freqs_cis, mask=None):
         """
         前向传播
         Args:
@@ -80,7 +81,7 @@ class Decoder(nn.Module):
         """
         # 逐层传递输入
         for layer in self.layers:
-            x = layer(x, mask)
+            x = layer(x, start_pos, freqs_cis, mask)
         
         x = self.norm(x)  # 最终归一化
         
