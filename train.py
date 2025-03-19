@@ -60,7 +60,7 @@ class Trainer:
         # 加载预训练权重
         if 'checkpoint' in config and config['checkpoint'] and os.path.exists(config['checkpoint']):
             self.load_checkpoint(config['checkpoint'])
-            
+        
         # 保存计算图
         self._save_computation_graph()
     

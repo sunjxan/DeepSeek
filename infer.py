@@ -2,6 +2,7 @@ import os
 import torch
 
 from data import create_tokenizer
+from ModelArgs import ModelArgs
 from DeepSeek import DeepSeek
 
 ROLE_MAP = {"system": 0, "user": 1, "assistant": 2}
@@ -24,10 +25,16 @@ def get_probs(model, input_ids, role_ids, tokenizer, temperature=1.0, top_k=None
     mask = model.generate_mask(input_ids, pad_id)
     
     with torch.no_grad():
-        output = model(input_ids, role_ids, mask)
+        output = model(
+            input_ids=input_ids,
+            role_ids=role_ids,
+            mask=mask
+        )
     
-    # 应用温度缩放
-    output = output[:, -1] / temperature
+    # 应用温度缩放，防止温度过低导致数值不稳定（设置温度下限为1e-5）
+    output = output[:, -1] / max(temperature, 1e-5)
+    # 生成指数分布噪声并与概率相除
+    output.div_(torch.empty_like(output).exponential_(1))
     # Top-k 过滤
     if top_k is not None and 0 < top_k <= output.size(-1):
         indices_to_remove = output < torch.topk(output, top_k)[0][..., -1, None]
@@ -59,7 +66,9 @@ if __name__ == '__main__':
     tokenizer = create_tokenizer()
     
     # 创建模型
-    model = DeepSeek(tokenizer.vocab_size)
+    args = ModelArgs()
+    args.vocab_size = tokenizer.vocab_size
+    model = DeepSeek(args)
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model.to(device)
@@ -76,10 +85,10 @@ if __name__ == '__main__':
     sep_id = tokenizer.convert_tokens_to_ids(sep_token)
     
     while True:
-    
+        
         while True:
             try:
-                text = input('user：').strip()
+                text = input('>>> ').strip()
             except:
                 print()
                 exit()
@@ -87,10 +96,15 @@ if __name__ == '__main__':
             if text:
                 break
         
-        if text == '再见':
+        if text == '/exit':
             break
         
-        print('\nassistant：', end='')
+        if text == '/clear':
+            input_ids = torch.LongTensor().unsqueeze(0).to(device)
+            role_ids = torch.LongTensor().unsqueeze(0).to(device)
+            continue
+        
+        print()
         
         tokens = tokenizer.encode(text, add_special_tokens=False)
         tokens.append(sep_id)
