@@ -36,7 +36,7 @@ def clean_text(text):
             last_role, last_content = role, content
     
     if last_role:
-        result.append({"role": last_role, "content": last_content})       
+        result.append({"role": last_role, "content": last_content})
     return result
 
 if not os.path.exists(corpus_file):

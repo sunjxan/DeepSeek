@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from MultiHeadAttention import MultiHeadAttention
+from MultiHeadLatentAttention import MultiHeadLatentAttention
 from PositionwiseFeedForward import PositionwiseFeedForward
 from SublayerConnection import SublayerConnection
 
@@ -19,7 +19,7 @@ class DecoderLayer(nn.Module):
         super().__init__()
         
         # 1. 带掩码的多头自注意力层（用于处理目标序列）
-        self.self_attn = MultiHeadAttention(d_model, num_heads, dropout)
+        self.self_attn = MultiHeadLatentAttention(d_model, num_heads, dropout)
         
         # 2. 前馈网络
         self.ffn = PositionwiseFeedForward(d_model, d_ff, dropout)
