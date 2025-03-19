@@ -137,7 +137,7 @@ class DeepSeek(nn.Module):
         # 注册预计算的位置编码（非持久化缓冲区）
         self.register_buffer("freqs_cis", precompute_freqs_cis(args), persistent=False)
     
-    def forward(self, input_ids, role_ids, start_pos=0, mask=None):
+    def forward(self, input_ids, start_pos=0, mask=None):
         """
         前向传播
         Args:

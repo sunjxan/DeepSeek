@@ -94,7 +94,6 @@ class Trainer:
             # 前向传播
             output = model(
                 input_ids=input_ids[:, :-1],  # 解码器输入去尾
-                role_ids=role_ids[:, :-1],
                 mask=mask[:, :-1, :-1]
             )
             
@@ -155,7 +154,6 @@ class Trainer:
             with torch.no_grad():
                 output = model(
                     input_ids=input_ids[:, :-1],  # 解码器输入去尾
-                    role_ids=role_ids[:, :-1],
                     mask=mask[:, :-1, :-1]
                 )
             

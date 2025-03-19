@@ -16,9 +16,9 @@ def process_data(input_ids, role_ids, model, role, tokens, device='cpu'):
     
     return input_ids, role_ids
 
-def get_probs(model, input_ids, role_ids, tokenizer, temperature=1.0, top_k=None):
-    input_ids = input_ids[:, -model.max_seq_len:]
-    role_ids = role_ids[:, -model.max_seq_len:]
+def get_probs(model, input_ids, prev_pos, tokenizer, temperature=1.0, top_k=None):
+    # input_ids = input_ids[:, -model.max_seq_len:]
+    # role_ids = role_ids[:, -model.max_seq_len:]
     
     pad_token = tokenizer.special_tokens_map['pad_token']
     pad_id = tokenizer.convert_tokens_to_ids(pad_token)
@@ -27,7 +27,7 @@ def get_probs(model, input_ids, role_ids, tokenizer, temperature=1.0, top_k=None
     with torch.no_grad():
         output = model(
             input_ids=input_ids,
-            role_ids=role_ids,
+            start_pos=prev_pos,
             mask=mask
         )
     
@@ -49,12 +49,15 @@ def sampling_decode(model, input_ids, role_ids, tokenizer, max_len=100, temperat
     assistant_id = torch.LongTensor([ROLE_MAP['assistant']]).unsqueeze(0).to(device)
     result = []
     
-    for _ in range(max_len):
-        probs = get_probs(model, input_ids, role_ids, tokenizer, temperature, top_k)
+    input_len = input_ids.size(-1)
+    prev_pos = 0  # 记录前一次处理的位置
+    for cur_pos in range(input_len, input_len+max_len):
+        probs = get_probs(model, input_ids[:, prev_pos:cur_pos], prev_pos, tokenizer, temperature, top_k)
         next_token = torch.multinomial(probs, num_samples=1)
         input_ids = torch.cat([input_ids, next_token], dim=-1)
-        role_ids = torch.cat([role_ids, assistant_id], dim=-1)
+        # role_ids = torch.cat([role_ids, assistant_id], dim=-1)
         result.append(next_token.item())
+        prev_pos = cur_pos
         if result[-1] == sep_id:
             break
     if result[-1] != sep_id:
@@ -89,6 +92,7 @@ if __name__ == '__main__':
         while True:
             try:
                 text = input('>>> ').strip()
+                print()
             except:
                 print()
                 exit()
@@ -102,9 +106,9 @@ if __name__ == '__main__':
         if text == '/clear':
             input_ids = torch.LongTensor().unsqueeze(0).to(device)
             role_ids = torch.LongTensor().unsqueeze(0).to(device)
+            print('历史已清除')
+            print()
             continue
-        
-        print()
         
         tokens = tokenizer.encode(text, add_special_tokens=False)
         tokens.append(sep_id)
