@@ -71,7 +71,7 @@ class Trainer:
         dummy_input = torch.zeros(1, *input_shape).long().to(self.device)
         start_pos = torch.zeros(1).int()
         dummy_mask = torch.zeros(1, *input_shape, *input_shape).bool().to(self.device)
-        self.writer.add_graph(self.model, (dummy_input, dummy_input, start_pos, dummy_mask))
+        self.writer.add_graph(self.model, (dummy_input, start_pos, dummy_mask))
     
     def train_epoch(self, epoch):
         """训练单个epoch"""
@@ -239,12 +239,10 @@ class Trainer:
 if __name__ == '__main__':
     # 初始化模型和数据加载器
     tokenizer = create_tokenizer()
-    pad_token = tokenizer.special_tokens_map['pad_token']
-    pad_id = tokenizer.convert_tokens_to_ids(pad_token)
     
     # 创建模型
     args = ModelArgs()
-    args.vocab_size = tokenizer.vocab_size
+    args.vocab_size = len(tokenizer.get_vocab())
     model = DeepSeek(args)
     
     # 初始化参数
@@ -252,7 +250,7 @@ if __name__ == '__main__':
     
     # 只计算机器人回复部分的损失（用户发言设为ignore_index）
     def masked_loss(logits, labels, role_ids):
-        mask = (role_ids == 2) & (labels != pad_id)
+        mask = (role_ids == 2) & (labels != tokenizer.pad_token_id)
         loss = F.cross_entropy(
             logits.view(-1, logits.size(-1)),
             labels.view(-1),
@@ -262,7 +260,7 @@ if __name__ == '__main__':
     
     def calc_accuracy(logits, labels, role_ids):
         preds = torch.argmax(logits, dim=-1)
-        mask = (role_ids == 2) & (labels != pad_id)
+        mask = (role_ids == 2) & (labels != tokenizer.pad_token_id)
         correct = (preds[mask] == labels[mask]).sum().item()
         return correct, mask.sum().item()
     
@@ -294,7 +292,7 @@ if __name__ == '__main__':
         'checkpoint': './checkpoints/checkpoint_best.pth',  # 可以指定预训练权重路径
         'print_interval_steps': 10,
         'save_interval_epochs': 5,
-        'pad_id': pad_id
+        'pad_id': tokenizer.pad_token_id
     }
     
     # 创建训练器

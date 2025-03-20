@@ -119,16 +119,10 @@ class DeepSeek(nn.Module):
         # 1. 词嵌入层
         self.embed = nn.Embedding(args.vocab_size, args.dim)
         
-        # # 2. 位置编码
-        # self.position_emb = nn.Parameter(torch.randn(max_seq_len, d_model))
-        
-        # # 3. 对话角色嵌入
-        # self.role_emb = nn.Embedding(3, d_model)  # 0:系统 1:用户 2:机器人
-        
-        # 4. 解码器
+        # 2. 解码器
         self.decoder = Decoder(args, dropout)
         
-        # 5. 最终线性层
+        # 3. 最终线性层
         self.generator = nn.Linear(args.dim, args.vocab_size)
         
         # 权重绑定：输入嵌入和输出层共享权重
@@ -152,20 +146,13 @@ class DeepSeek(nn.Module):
         # 1. 词嵌入
         emb = self.embed(input_ids)  # (batch_size, seq_len, d_model)
         
-        # # 2. 位置编码
-        # position_emb = self.position_emb[:seq_len]
-        
-        # # 3. 角色编码
-        # role_emb = self.role_emb(role_ids)
-        # memory = emb + position_emb + role_emb  # (batch_size, seq_len, d_model)
-
         # 获取当前位置编码
         freqs_cis = self.freqs_cis[start_pos : start_pos + seq_len]
 
-        # 4. 解码器处理
+        # 2. 解码器处理
         decoder_output = self.decoder(emb, start_pos, freqs_cis, mask)  # (batch_size, seq_len, d_model)
         
-        # 5. 输出层映射到词表
+        # 3. 输出层映射到词表
         output = self.generator(decoder_output)  # (batch_size, seq_len, vocab_size)
         
         return output
@@ -198,29 +185,5 @@ class DeepSeek(nn.Module):
         '''结合填充掩码和因果掩码得到目标序列掩码'''
         return cls.generate_padding_mask(seq, pad_id) & cls.generate_causal_mask(seq.size(-1)).to(seq.device)   # (batch_size, seq_len, seq_len)
 
-'''
-    计算模型参数量
-    
-    1. 嵌入层
-    vocab_size × d_model
-    
-    2. 位置编码
-    max_seq_len × d_model
-    
-    3. 角色编码
-    3 x d_model
-    
-    4. 解码器（Decoder）
-    每层包含：
-        1个多头注意力（相当于4个线性层，无偏置项）：4 × (d_model × d_model)
-        前馈网络（2个线性层）：2 × d_model × d_ff + d_ff + d_model
-        2个归一化层：2 × (d_model + d_model)
-    最终归一化层：d_model + d_model
-    总参数量：
-        num_decoder_layers × [4d² + 2d·d_ff + d_ff + 5d] + 2d
-    
-    5. 生成器（Generator）
-    weight共享嵌入层权重，无bias
-'''
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)

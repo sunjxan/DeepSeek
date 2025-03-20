@@ -12,8 +12,6 @@ from torch.nn.utils.rnn import pad_sequence
 corpus_file = 'cleaned_corpus.txt'
 model_dirname = 'tokenizer_chinese'
 
-ROLE_MAP = {"system": 0, "user": 1, "assistant": 2}
-
 def clean_text(text):
     # 定义正则表达式模式匹配对话块
     pattern = r'<\|start_header_id\|>(.*?)<\|end_header_id\|>\n\n(.*?)<\|eot_id\|>'
@@ -51,7 +49,23 @@ if not os.path.exists(corpus_file):
                 f.write(json.dumps(cleaned, ensure_ascii=False) + "\n")
 
 if not os.path.exists(model_dirname):
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-chinese")
+    tokenizer = AutoTokenizer.from_pretrained("deepseek-ai/DeepSeek-V3")
+    tokenizer.chat_template = '''{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}
+{% set ns = namespace(system_prompt='', is_first_sp=true) %}
+{% for message in messages %}
+    {% if message['role'] == 'system' %}
+        {% if ns.is_first_sp %}
+            {% set ns.system_prompt = ns.system_prompt + message['content'] %}
+            {% set ns.is_first_sp = false %}
+        {% else %}
+            {% set ns.system_prompt = ns.system_prompt + '\\n' + message['content'] %}
+        {% endif %}
+    {% endif %}
+{% endfor %}{{ bos_token }}{{ ns.system_prompt }}{% for message in messages %}
+    {% if message['role'] == 'user' %}{{'<｜User｜>' + message['content']}}{% endif %}
+    {% if message['role'] == 'assistant' %}{{'<｜Assistant｜>' + message['content'] + eos_token}}{% endif %}
+{% endfor %}
+{% if add_generation_prompt %}{{'<｜Assistant｜>'}}{% endif %}'''
     tokenizer.save_pretrained(model_dirname)
 
 def create_tokenizer():
@@ -71,18 +85,26 @@ class DialogueDataset(Dataset):
         return len(self.data)
     
     def __getitem__(self, idx):
-        dialogue = self.data[idx]
-        input_ids = []
-        role_ids = []
+        input_ids = self.tokenizer.apply_chat_template(self.data[idx])
+        role_ids = [0] * len(input_ids)
         
-        sep_token = self.tokenizer.special_tokens_map['sep_token']
-        sep_id = self.tokenizer.convert_tokens_to_ids(sep_token)
-        for item in dialogue:
-            role, content = item['role'], item['content']
-            tokens = self.tokenizer.encode(content, add_special_tokens=False)
-            tokens.append(sep_id)
-            input_ids.extend(tokens)
-            role_ids.extend([ROLE_MAP[role]] * len(tokens))
+        user_id = self.tokenizer.convert_tokens_to_ids("<｜User｜>")
+        assistant_id = self.tokenizer.convert_tokens_to_ids("<｜Assistant｜>")
+        
+        last_pos = None
+        last_token = None
+        for i, v in enumerate(input_ids):
+            if v in [user_id, assistant_id]:
+                if last_pos is not None:
+                    role = 2 if last_token == assistant_id else 1
+                    for j in range(last_pos+1, i):
+                        role_ids[j] = role
+                last_pos = i
+                last_token = v
+        if last_pos is not None:
+            role = 2 if last_token == assistant_id else 1
+            for j in range(last_pos+1, len(role_ids)):
+                role_ids[j] = role
         
         return {
             "input_ids": input_ids,
@@ -96,11 +118,8 @@ def collate_batch(batch, tokenizer, max_len):
     for item in batch:
         input_batch.append(torch.LongTensor(item['input_ids'][:max_len]))
         role_batch.append(torch.LongTensor(item['role_ids'][:max_len]))
-    
-    pad_token = tokenizer.special_tokens_map['pad_token']
-    pad_id = tokenizer.convert_tokens_to_ids(pad_token)
-    
-    input_batch = pad_sequence(input_batch, batch_first=True, padding_value=pad_id)
+        
+    input_batch = pad_sequence(input_batch, batch_first=True, padding_value=tokenizer.pad_token_id)
     role_batch = pad_sequence(role_batch, batch_first=True, padding_value=0)
     return input_batch, role_batch
 

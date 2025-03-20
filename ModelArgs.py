@@ -38,10 +38,10 @@ class ModelArgs:
         beta_slow (int): 慢速beta调整参数
         mscale (float): 注意力缩放因子
     """
-    max_batch_size: int = 32         # 根据GPU显存调整
-    max_seq_len: int = 100           # 支持最大tokens数
+    max_batch_size: int = 10         # 根据GPU显存调整
+    max_seq_len: int = 1024          # 支持最大 tokens 数
     # dtype: Literal["bf16", "fp8"] = "bf16"
-    # vocab_size: int = 10240          # 根据词表实际大小设置
+    vocab_size: int = 10240          # 根据词表实际大小设置
     dim: int = 200                   # 隐藏层维度
     inter_dim: int = 300             # MLP中间层扩展维度
     moe_inter_dim: int = 250         # MoE专家中间层维度
