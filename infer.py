@@ -56,8 +56,7 @@ if __name__ == '__main__':
     tokenizer = create_tokenizer()
     
     # 创建模型
-    args = ModelArgs()
-    args.vocab_size = len(tokenizer.get_vocab())
+    args = ModelArgs(vocab_size=len(tokenizer.get_vocab()))
     model = Transformer(args)
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
