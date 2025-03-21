@@ -39,7 +39,7 @@ class ModelArgs:
         mscale (float): 注意力缩放因子
     """
     max_batch_size: int = 10         # 根据GPU显存调整
-    max_seq_len: int = 1024          # 支持最大 tokens 数
+    max_seq_len: int = 256           # 支持最大 tokens 数
     # dtype: Literal["bf16", "fp8"] = "bf16"
     vocab_size: int = 10240          # 根据词表实际大小设置
     dim: int = 200                   # 隐藏层维度

@@ -31,7 +31,7 @@ def sampling_decode(model, input_ids, tokenizer, max_len=100, temperature=1.0):
         print(f"输入长度超过模型最大长度限制（max_seq_len={model.max_seq_len}）")
         exit()
     max_len = min(max_len, model.max_seq_len - input_len)
-
+    
     model.eval()
     
     result = []
@@ -50,6 +50,9 @@ def sampling_decode(model, input_ids, tokenizer, max_len=100, temperature=1.0):
     return result
 
 if __name__ == '__main__':
+    # 设置随机种子（保证可重复性）
+    torch.manual_seed(0)
+    
     tokenizer = create_tokenizer()
     
     # 创建模型
@@ -69,7 +72,7 @@ if __name__ == '__main__':
         {'role': 'system', 'content': '你是一个强大的助手。'}
     ]
     messages = default_messages[:]
-
+    
     while True:
         
         while True:

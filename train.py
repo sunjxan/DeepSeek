@@ -280,8 +280,8 @@ if __name__ == '__main__':
         gamma=0.95
     )
     
-    train_loader = create_dataloader(tokenizer, batch_size=10, max_len=model.max_seq_len, shuffle=True, drop_last=True)
-    val_loader = create_dataloader(tokenizer, batch_size=10, max_len=model.max_seq_len)
+    train_loader = create_dataloader(tokenizer, batch_size=args.max_batch_size, max_len=model.max_seq_len, shuffle=True, drop_last=True)
+    val_loader = create_dataloader(tokenizer, batch_size=args.max_batch_size, max_len=model.max_seq_len)
     
     # 配置参数
     config = {
