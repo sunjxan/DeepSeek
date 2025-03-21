@@ -100,10 +100,10 @@ def precompute_freqs_cis(args):
     freqs_cis = torch.polar(torch.ones_like(freqs), freqs)
     return freqs_cis
 
-class DeepSeek(nn.Module):
+class Transformer(nn.Module):
     def __init__(self, args, dropout=0.1):
         """
-        DeepSeek 模型
+        Transformer 模型
         Args:
             vocab_size (int): 词表大小
             d_model (int): 模型维度（输入/输出维度）

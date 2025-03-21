@@ -3,7 +3,7 @@ import torch
 
 from data import create_tokenizer
 from ModelArgs import ModelArgs
-from DeepSeek import DeepSeek
+from Transformer import Transformer
 
 def get_probs(model, input_ids, prev_pos, tokenizer, temperature=1.0):
     # input_ids = input_ids[:, -model.max_seq_len:]
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     # 创建模型
     args = ModelArgs()
     args.vocab_size = len(tokenizer.get_vocab())
-    model = DeepSeek(args)
+    model = Transformer(args)
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model.to(device)

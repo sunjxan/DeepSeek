@@ -3,7 +3,7 @@ import torch.nn as nn
 
 class SublayerConnection(nn.Module):
     """
-    残差连接与层归一化（对应DeepSeek中的Add & Norm操作）选用Pre-LN 结构
+    残差连接与层归一化（对应Transformer中的Add & Norm操作）选用Pre-LN 结构
     Pre-LN 结构：x -> RMSNorm -> Sublayer -> Dropout -> Add
     Post-LN 结构：x -> Sublayer -> Dropout -> Add -> RMSNorm
     输入输出形状保持不变：(batch_size, seq_len, d_model)

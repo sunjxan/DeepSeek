@@ -7,7 +7,7 @@ from torch.functional import F
 from torch.utils.tensorboard import SummaryWriter
 
 from data import create_tokenizer, create_dataloader
-from DeepSeek import DeepSeek
+from Transformer import Transformer
 from ModelArgs import ModelArgs
 
 class Trainer:
@@ -243,7 +243,7 @@ if __name__ == '__main__':
     # 创建模型
     args = ModelArgs()
     args.vocab_size = len(tokenizer.get_vocab())
-    model = DeepSeek(args)
+    model = Transformer(args)
     
     # 初始化参数
     model.init_parameters()
