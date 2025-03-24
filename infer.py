@@ -6,7 +6,6 @@ from ModelArgs import ModelArgs
 from Transformer import Transformer
 
 def get_probs(model, input_ids, prev_pos, tokenizer, temperature=1.0):
-    # input_ids = input_ids[:, -model.max_seq_len:]
     mask = model.generate_mask(input_ids, tokenizer.pad_token_id)
     
     with torch.no_grad():
