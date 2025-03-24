@@ -95,8 +95,7 @@ if __name__ == '__main__':
             continue
         
         messages.append({'role': 'user', 'content': text})
-        prompt = tokenizer.apply_chat_template(messages, add_generation_prompt=True)
-        input_ids = torch.LongTensor(prompt).unsqueeze(0).to(device)
+        input_ids = tokenizer.apply_chat_template(messages, add_generation_prompt=True, return_tensors="pt").to(device)
         
         predictions = sampling_decode(model, input_ids, tokenizer, max_len=100, temperature=0.9)
         result = tokenizer.decode(predictions, skip_special_tokens=True)
