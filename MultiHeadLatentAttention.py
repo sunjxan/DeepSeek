@@ -74,7 +74,7 @@ class ScaledDotProductAttention(nn.Module):
         output = torch.einsum("bsht,bthd->bshd", attn_weights, V)
         # output shape: (batch_size, seq_len_q, num_heads, d_v)
         
-        return output, attn_weights
+        return output
 
 class MultiHeadLatentAttention(nn.Module):
     """
@@ -215,7 +215,7 @@ class MultiHeadLatentAttention(nn.Module):
             # 扩展掩码维度以匹配多头 (batch_size, seq_len, 1, seq_len) -> 广播到num_heads
             mask = mask.unsqueeze(2)
         
-        output, attn_weights = self.attn(q, self.k_cache[:bsz, :end_pos], self.v_cache[:bsz, :end_pos], mask)
+        output = self.attn(q, self.k_cache[:bsz, :end_pos], self.v_cache[:bsz, :end_pos], mask)
         
         # 投影回模型维度
         return self.wo(output.flatten(2))
