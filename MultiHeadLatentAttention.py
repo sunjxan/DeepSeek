@@ -60,9 +60,7 @@ class ScaledDotProductAttention(nn.Module):
             # 将mask中为False的位置替换为负无穷大（softmax后趋近于0）
             scores = scores.masked_fill(mask == 0, float('-inf'))
             # mask需要能广播到scores的形状
-            # src attention，mask形状(1, S)，广播后(S, S)，右侧为False，用于重新编码时忽略pad
-            # tgt attention，mask形状(T, T)，右侧和右上方为False，用于重新编码时忽略pad和该词后面的词
-            # tgt-src attention，mask形状(1, S)，广播后(T, S)，右侧为False，每个词根据src的value重新编码，可用于预测下一个词
+            # mask形状(T, T)，右侧和右上方为False，用于重新编码时忽略pad和该词后面的词
         
         # 计算注意力权重（最后一维进行softmax）
         attn_weights = torch.softmax(scores, dim=-1)
